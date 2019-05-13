@@ -13,9 +13,12 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
+using System.Windows.Threading;
+
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using NAudio.Dsp;
+using System.Diagnostics;
 
 namespace Entrada
 {
@@ -25,11 +28,60 @@ namespace Entrada
     public partial class MainWindow : Window
     {
         WaveIn waveIn;
+        DispatcherTimer timer;
+        Stopwatch cronometro;
+        string letraAnterior = "";
+        string letraActual = "";
+
+        float frecuenciaFundamental = 0.0f;
 
         public MainWindow()
         {
             InitializeComponent();
+            timer = new DispatcherTimer();
+            timer.Interval = 
+                TimeSpan.FromMilliseconds(100);
+            timer.Tick += Timer_Tick;
+            cronometro = new Stopwatch();
             LlenarComboDispositivos();
+        }
+
+        private void Timer_Tick(object sender, EventArgs e)
+        {
+            if (frecuenciaFundamental >= 500)
+            {
+                var leftCarro = Canvas.GetLeft(imgCarro);
+                Canvas.SetLeft(imgCarro,
+                    leftCarro +
+                    (frecuenciaFundamental / 500.0) * 0.5);
+            }
+            else
+            {
+                Canvas.SetLeft(imgCarro, 10);
+            }
+            //Texto
+            if (letraActual != "" && letraActual == letraAnterior)
+            {
+                //Evaluar un segundo 
+                if (cronometro.ElapsedMilliseconds >= 1000);
+                {
+                    txtTexto.AppendText(letraActual);
+                    letraActual = "";
+                    cronometro.Restart();
+                    if (txtTexto.Text.Length >= 2)
+                    {
+                       string texto = txtTexto.Text.Substring(txtTexto.Text.Length - 2, 2);
+                        if (texto =="EO")
+                        {
+                            lblEO.Visibility = Visibility.Visible;
+
+                        }
+                    }
+                }
+            } else
+            {
+                cronometro.Restart();
+            }
         }
 
         public void LlenarComboDispositivos()
@@ -47,6 +99,7 @@ namespace Entrada
 
         private void btnIniciar_Click(object sender, RoutedEventArgs e)
         {
+            timer.Start();
             waveIn = new WaveIn();
             //Formato de audio
             waveIn.WaveFormat =
@@ -102,8 +155,6 @@ namespace Entrada
                 {
                     señalCompleja[i / 2].X =
                         muestra32bits;
-
-
                 }
 
             }
@@ -118,28 +169,56 @@ namespace Entrada
                 FastFourierTransform.FFT(true, exponente, 
                     señalCompleja);
 
-                float[] valoresAbsolutos = new float[señalCompleja.Length];
-                for (int i = 0; i < señalCompleja.Length; i++)
+                float[] valoresAbsolutos =
+                    new float[señalCompleja.Length];
+                for(int i=0; i < señalCompleja.Length; i++)
                 {
-                    valoresAbsolutos[i] = (float) Math.Sqrt((señalCompleja[i].X * señalCompleja[i].X) + (señalCompleja[i].Y * señalCompleja[i].Y));
-
+                    valoresAbsolutos[i] = (float)
+                        Math.Sqrt(
+                            (señalCompleja[i].X * señalCompleja[i].X) +
+                            (señalCompleja[i].Y * señalCompleja[i].Y));
                 }
 
-                int indiceSeñalConMasPresencia = valoresAbsolutos.ToList().IndexOf(valoresAbsolutos.Max());
+                int indiceSeñalConMasPresencia =
+                    valoresAbsolutos.ToList().IndexOf(
+                        valoresAbsolutos.Max());
 
-                float frecuencaFundamental = (float)indiceSeñalConMasPresencia * waveIn.WaveFormat.SampleRate / (float)valoresAbsolutos.Length;
-
-                lblFrecuencia.Text = frecuencaFundamental.ToString("f");
-                if(frecuencaFundamental >= 500)
+                frecuenciaFundamental =
+                    (float)(indiceSeñalConMasPresencia *
+                    waveIn.WaveFormat.SampleRate) /
+                    (float)valoresAbsolutos.Length;
+                letraAnterior = letraActual;
+                if (frecuenciaFundamental >= 500 && frecuenciaFundamental <= 550)
                 {
-                    Canvas.SetLeft(imgCarro, 100);
-
-                }else
+                    letraActual = "A";
+                }
+                else if (frecuenciaFundamental >= 600 && frecuenciaFundamental <= 650)
                 {
-                    Canvas.SetLeft(imgCarro, 10);
+                    letraActual = "E";
+                }
+                else if (frecuenciaFundamental >= 700 && frecuenciaFundamental <= 750)
+                {
+                    letraActual = "I";
+                }
+                else if (frecuenciaFundamental >= 800 && frecuenciaFundamental <= 850)
+                {
+                    letraActual = "O";
+                }
+                else if (frecuenciaFundamental >= 900 && frecuenciaFundamental <= 950)
+                {
+                    letraActual = "U";
+                }
+                else
+                {
+                    letraActual = "";
                 }
 
 
+
+
+                lblFrecuencia.Text =
+                    frecuenciaFundamental.ToString("f");
+                
             }
 
 
